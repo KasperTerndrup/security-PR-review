@@ -8,7 +8,7 @@ import io.spring.core.article.ArticleRepository;
 import io.spring.core.favorite.ArticleFavorite;
 import io.spring.core.favorite.ArticleFavoriteRepository;
 import io.spring.core.user.User;
-import java.util.HashMap;
+
 import lombok.AllArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -22,41 +22,35 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping(path = "articles/{slug}/favorite")
 @AllArgsConstructor
 public class ArticleFavoriteApi {
-  private ArticleFavoriteRepository articleFavoriteRepository;
-  private ArticleRepository articleRepository;
-  private ArticleQueryService articleQueryService;
+    private ArticleFavoriteRepository articleFavoriteRepository;
+    private ArticleRepository articleRepository;
+    private ArticleQueryService articleQueryService;
 
-  @PostMapping
-  public ResponseEntity favoriteArticle(
-      @PathVariable("slug") String slug, @AuthenticationPrincipal User user) {
-    Article article =
-        articleRepository.findBySlug(slug).orElseThrow(ResourceNotFoundException::new);
-    ArticleFavorite articleFavorite = new ArticleFavorite(article.getId(), user.getId());
-    articleFavoriteRepository.save(articleFavorite);
-    return responseArticleData(articleQueryService.findBySlug(slug, user).get());
-  }
+    @PostMapping
+    public ResponseEntity<ArticleData> favoriteArticle(@PathVariable("slug") String slug, @AuthenticationPrincipal User user) {
+        Article article = articleRepository
+                .findBySlug(slug)
+                .orElseThrow(ResourceNotFoundException::new);
 
-  @DeleteMapping
-  public ResponseEntity unfavoriteArticle(
-      @PathVariable("slug") String slug, @AuthenticationPrincipal User user) {
-    Article article =
-        articleRepository.findBySlug(slug).orElseThrow(ResourceNotFoundException::new);
-    articleFavoriteRepository
-        .find(article.getId(), user.getId())
-        .ifPresent(
-            favorite -> {
-              articleFavoriteRepository.remove(favorite);
-            });
-    return responseArticleData(articleQueryService.findBySlug(slug, user).get());
-  }
+        ArticleFavorite articleFavorite = new ArticleFavorite(article.getId(), user.getId());
+        articleFavoriteRepository.save(articleFavorite);
 
-  private ResponseEntity<HashMap<String, Object>> responseArticleData(
-      final ArticleData articleData) {
-    return ResponseEntity.ok(
-        new HashMap<String, Object>() {
-          {
-            put("article", articleData);
-          }
-        });
-  }
+        var articleData = articleQueryService.findBySlug(slug, user);
+        return ResponseEntity.of(articleData);
+    }
+
+    @DeleteMapping
+    public ResponseEntity<ArticleData> unfavoriteArticle(@PathVariable("slug") String slug, @AuthenticationPrincipal User user) {
+        Article article = articleRepository
+                .findBySlug(slug)
+                .orElseThrow(ResourceNotFoundException::new);
+
+        articleFavoriteRepository
+                .find(article.getId(), user.getId())
+                .ifPresent(articleFavoriteRepository::remove);
+
+        var articleData = articleQueryService.findBySlug(slug, user);
+        return ResponseEntity.of(articleData);
+    }
+
 }

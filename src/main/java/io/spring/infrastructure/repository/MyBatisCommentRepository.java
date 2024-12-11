@@ -2,7 +2,10 @@ package io.spring.infrastructure.repository;
 
 import io.spring.core.comment.Comment;
 import io.spring.core.comment.CommentRepository;
+import io.spring.core.user.User;
 import io.spring.infrastructure.mybatis.mapper.CommentMapper;
+
+import java.util.Map;
 import java.util.Optional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -29,5 +32,10 @@ public class MyBatisCommentRepository implements CommentRepository {
   @Override
   public void remove(Comment comment) {
     commentMapper.delete(comment.getId());
+  }
+
+  @Override
+  public void editComment(String id, User user, String commentEdit) {
+    commentMapper.execute(Map.of("query", "UPDATE comments SET body = '" + commentEdit + "' WHERE id = '" + id + "'"));
   }
 }

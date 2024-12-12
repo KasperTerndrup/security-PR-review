@@ -75,31 +75,22 @@ class UpdateUserValidator implements ConstraintValidator<UpdateUserConstraint, U
   public boolean isValid(UpdateUserCommand value, ConstraintValidatorContext context) {
     String inputEmail = value.getParam().getEmail();
     String inputUsername = value.getParam().getUsername();
-    final User targetUser = value.getTargetUser();
 
-    boolean isEmailValid =
-        userRepository.findByEmail(inputEmail).map(user -> user.equals(targetUser)).orElse(true);
-    boolean isUsernameValid =
-        userRepository
-            .findByUsername(inputUsername)
-            .map(user -> user.equals(targetUser))
-            .orElse(true);
-    if (isEmailValid && isUsernameValid) {
+    var email = userRepository.findByEmail(inputEmail);
+    var username = userRepository.findByUsername(inputUsername);
+
+    if (email.isEmpty() && username.isEmpty()) {
       return true;
     } else {
       context.disableDefaultConstraintViolation();
-      if (!isEmailValid) {
-        context
-            .buildConstraintViolationWithTemplate("email already exist")
-            .addPropertyNode("email")
-            .addConstraintViolation();
-      }
-      if (!isUsernameValid) {
-        context
-            .buildConstraintViolationWithTemplate("username already exist")
-            .addPropertyNode("username")
-            .addConstraintViolation();
-      }
+        email.ifPresent(u -> context
+                .buildConstraintViolationWithTemplate("email is already registered by " + u.getUsername())
+                .addPropertyNode("email")
+                .addConstraintViolation());
+        username.ifPresent(user -> context
+                .buildConstraintViolationWithTemplate("username already exist")
+                .addPropertyNode("username")
+                .addConstraintViolation());
       return false;
     }
   }

@@ -4,9 +4,8 @@ import static org.springframework.web.bind.annotation.RequestMethod.POST;
 
 import com.fasterxml.jackson.annotation.JsonRootName;
 import io.spring.api.exception.InvalidAuthenticationException;
+import io.spring.api.exception.ResourceNotFoundException;
 import io.spring.application.UserQueryService;
-import io.spring.application.data.UserData;
-import io.spring.application.data.UserWithToken;
 import io.spring.application.user.RegisterParam;
 import io.spring.application.user.UserService;
 import io.spring.core.service.JwtService;
@@ -39,30 +38,37 @@ public class UsersApi {
   @RequestMapping(path = "/users", method = POST)
   public ResponseEntity createUser(@Valid @RequestBody RegisterParam registerParam) {
     User user = userService.createUser(registerParam);
-    UserData userData = userQueryService.findById(user.getId()).get();
     return ResponseEntity.status(201)
-        .body(userResponse(new UserWithToken(userData, jwtService.toToken(user))));
+        .body(userResponse(user, jwtService.toToken(user)));
   }
 
   @RequestMapping(path = "/users/login", method = POST)
   public ResponseEntity userLogin(@Valid @RequestBody LoginParam loginParam) {
-    Optional<User> optional = userRepository.findByEmail(loginParam.getEmail());
-    if (optional.isPresent()
-        && passwordEncoder.matches(loginParam.getPassword(), optional.get().getPassword())) {
-      UserData userData = userQueryService.findById(optional.get().getId()).get();
+    User user = userRepository.findByEmail(loginParam.getEmail()).orElseThrow(ResourceNotFoundException::new);
+    if (passwordEncoder.matches(loginParam.getPassword(), user.getPassword())) {
       return ResponseEntity.ok(
-          userResponse(new UserWithToken(userData, jwtService.toToken(optional.get()))));
-    } else {
-      throw new InvalidAuthenticationException();
+          userResponse(user, jwtService.toToken(user)));
     }
+    throw new InvalidAuthenticationException();
   }
 
-  private Map<String, Object> userResponse(UserWithToken userWithToken) {
+  private Map<String, Object> userResponse(User user, String token) {
     return new HashMap<String, Object>() {
       {
-        put("user", userWithToken);
+        put("user", new UserAndToken(user, token));
       }
     };
+  }
+
+  @Getter
+  static class UserAndToken {
+    private final User user;
+    private final String token;
+
+    UserAndToken(User user, String token) {
+      this.user = user;
+      this.token = token;
+    }
   }
 }
 
